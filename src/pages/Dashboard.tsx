@@ -11,38 +11,40 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   ScatterChart, Scatter, ZAxis
 } from 'recharts';
-import { mockStudents } from '../data/mockData';
+import { getPredictionHistory } from '../services/predictionStorage';
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
 
 export function Dashboard() {
+  const students = getPredictionHistory();
+
   const stats = useMemo(() => {
-    const total = mockStudents.length;
-    const avgScore = mockStudents.reduce((acc, curr) => acc + curr.prediction.score, 0) / total;
-    const excellent = mockStudents.filter(s => s.prediction.category === 'Excellent').length;
-    const atRisk = mockStudents.filter(s => s.prediction.category === 'At Risk').length;
+    const total = students.length;
+    const avgScore = total > 0 ? students.reduce((acc, curr) => acc + curr.prediction.score, 0) / total : 0;
+    const excellent = students.filter(s => s.prediction.category === 'Excellent').length;
+    const atRisk = students.filter(s => s.prediction.category === 'At Risk').length;
 
     const distribution = [
       { name: 'Excellent', value: excellent },
-      { name: 'Good', value: mockStudents.filter(s => s.prediction.category === 'Good').length },
-      { name: 'Average', value: mockStudents.filter(s => s.prediction.category === 'Average').length },
+      { name: 'Good', value: students.filter(s => s.prediction.category === 'Good').length },
+      { name: 'Average', value: students.filter(s => s.prediction.category === 'Average').length },
       { name: 'At Risk', value: atRisk },
     ];
 
-    const studyHoursData = mockStudents.map(s => ({
+    const studyHoursData = students.map(s => ({
       name: s.name.split(' ')[0],
       hours: s.studyHours,
       score: s.prediction.score
     })).sort((a, b) => b.score - a.score).slice(0, 7);
 
-    const attendanceData = mockStudents.map(s => ({
+    const attendanceData = students.map(s => ({
       attendance: s.attendance,
       score: s.prediction.score,
       name: s.name
     }));
 
     return { total, avgScore, excellent, atRisk, distribution, studyHoursData, attendanceData };
-  }, []);
+  }, [students]);
 
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },

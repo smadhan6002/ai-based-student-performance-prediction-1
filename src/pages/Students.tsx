@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Eye } from 'lucide-react';
-import { mockStudents } from '../data/mockData';
+import { getPredictionHistory } from '../services/predictionStorage';
 import { cn } from '../utils/cn';
 
 export function Students() {
   const [searchTerm, setSearchTerm] = useState('');
+  const students = getPredictionHistory();
   
-  const filteredStudents = mockStudents.filter(student => 
+  const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.department.toLowerCase().includes(searchTerm.toLowerCase())

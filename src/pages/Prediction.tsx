@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Sparkles, BrainCircuit, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
-import { predictPerformance } from '../services/predictionService';
+import { Play, Sparkles, BrainCircuit, ArrowLeft, RefreshCw, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { predictStudentPerformance } from '../services/predictionService';
+import { savePrediction } from '../services/predictionStorage';
 import type { StudentInput, PredictionResult, Department, Year, Semester } from '../types';
 import { cn } from '../utils/cn';
-import { PieChart, Pie, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, ResponsiveContainer, Cell } from 'recharts';
 
 const INITIAL_STATE: StudentInput = {
   name: '',
@@ -78,16 +79,19 @@ export function Prediction() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsPredicting(true);
-    setPredictionStep(1); // "Analyzing student data..."
+    setPredictionStep(1); // "Collecting student information..."
     
-    setTimeout(() => setPredictionStep(2), 800); // "Evaluating academic indicators..."
-    setTimeout(() => setPredictionStep(3), 1600); // "Generating prediction..."
+    setTimeout(() => setPredictionStep(2), 600); // "Analyzing academic indicators..."
+    setTimeout(() => setPredictionStep(3), 1200); // "Evaluating performance factors..."
+    setTimeout(() => setPredictionStep(4), 1800); // "Generating performance assessment..."
 
     try {
-      const res = await predictPerformance(formData);
+      const res = await predictStudentPerformance(formData);
+      savePrediction(res);
       setResult(res);
     } catch (error) {
       console.error(error);
+      alert("An error occurred during prediction.");
     } finally {
       setIsPredicting(false);
       setPredictionStep(0);
@@ -112,6 +116,11 @@ export function Prediction() {
           Back to Form
         </button>
 
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm mb-4">
+          <Info className="w-4 h-4" />
+          Demo prediction engine — machine learning model integration will be added in the next phase.
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass-card p-8 flex flex-col items-center justify-center text-center md:col-span-1">
             <h2 className="text-xl font-bold text-white mb-6">Performance Score</h2>
@@ -127,7 +136,10 @@ export function Prediction() {
                     startAngle={225} endAngle={-45}
                     dataKey="value" stroke="none"
                     cornerRadius={10}
-                  />
+                  >
+                    <Cell fill={getCategoryColor(result.category)} />
+                    <Cell fill="#27272a" />
+                  </Pie>
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -139,55 +151,81 @@ export function Prediction() {
             <h3 className="text-2xl font-bold" style={{ color: getCategoryColor(result.category) }}>{result.category}</h3>
             <div className="flex gap-4 mt-4 w-full text-left">
               <div className="flex-1 bg-surfaceLight/50 p-3 rounded-lg border border-white/5">
-                <p className="text-xs text-gray-400">Confidence</p>
-                <p className="font-bold text-white">{(result.confidence * 100).toFixed(0)}%</p>
+                <p className="text-xs text-gray-400">{result.confidenceType}</p>
+                <p className="font-bold text-white">{result.confidence}%</p>
               </div>
               <div className="flex-1 bg-surfaceLight/50 p-3 rounded-lg border border-white/5">
                 <p className="text-xs text-gray-400">Risk Level</p>
-                <p className={cn("font-bold", result.riskLevel === 'Low' ? 'text-emerald-400' : result.riskLevel === 'Medium' ? 'text-yellow-400' : 'text-red-400')}>
+                <p className={cn("font-bold", result.riskLevel.includes('Low') ? 'text-emerald-400' : result.riskLevel.includes('Medium') ? 'text-yellow-400' : 'text-red-400')}>
                   {result.riskLevel}
                 </p>
               </div>
             </div>
           </motion.div>
 
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="glass-card p-8 md:col-span-2 flex flex-col justify-center">
-            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary-400" />
-              AI Recommendations
-            </h2>
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="glass-card p-8 md:col-span-2 flex flex-col">
+            <h2 className="text-xl font-bold text-white mb-6">Score Breakdown</h2>
             <div className="space-y-4">
-              {result.recommendations.map((rec, i) => (
-                <div key={i} className="flex gap-4 items-start p-4 bg-surfaceLight/30 rounded-xl border border-white/5">
-                  <div className="mt-1"><CheckCircle2 className="w-5 h-5 text-primary-400" /></div>
-                  <p className="text-gray-300 leading-relaxed">{rec}</p>
+              {result.breakdown.map((factor, i) => (
+                <div key={i} className="flex flex-col">
+                  <div className="flex justify-between items-end mb-1">
+                    <span className="font-medium text-gray-300 text-sm">{factor.name} <span className="text-gray-500">({factor.weight}%)</span></span>
+                    <span className="text-xs text-gray-400">{factor.value} / {factor.max}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-surfaceLight rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary-500 rounded-full"
+                      style={{ width: `${(factor.value / factor.max) * 100}%` }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
           </motion.div>
         </div>
 
-        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="glass-card p-8">
-          <h2 className="text-xl font-bold text-white mb-6">Why this prediction?</h2>
-          <div className="space-y-6">
-            {result.factors.map((factor, i) => (
-              <div key={i}>
-                <div className="flex justify-between items-end mb-2">
-                  <span className="font-medium text-gray-300">{factor.name}</span>
-                  <span className="text-sm text-gray-400">{factor.value} / {factor.max}</span>
-                </div>
-                <div className="h-2 w-full bg-surfaceLight rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(factor.value / factor.max) * 100}%` }}
-                    transition={{ duration: 1, delay: 0.3 + (i * 0.1) }}
-                    className={cn(
-                      "h-full rounded-full",
-                      factor.impact === 'positive' ? 'bg-emerald-500' : factor.impact === 'negative' ? 'bg-red-500' : 'bg-blue-500'
-                    )}
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1">{factor.description}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="glass-card p-8">
+            <h2 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5" /> Positive Performance Factors
+            </h2>
+            <ul className="space-y-3">
+              {result.positiveFactors.length > 0 ? result.positiveFactors.map((factor, i) => (
+                <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
+                  <span className="text-emerald-400 mt-0.5">✓</span> {factor}
+                </li>
+              )) : (
+                <li className="text-gray-500 text-sm">No major positive factors identified.</li>
+              )}
+            </ul>
+          </motion.div>
+          
+          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="glass-card p-8">
+            <h2 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" /> Areas Requiring Attention
+            </h2>
+            <ul className="space-y-3">
+              {result.negativeFactors.length > 0 ? result.negativeFactors.map((factor, i) => (
+                <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
+                  <span className="text-red-400 mt-0.5">⚠</span> {factor}
+                </li>
+              )) : (
+                <li className="text-gray-500 text-sm">No major areas of concern identified.</li>
+              )}
+            </ul>
+          </motion.div>
+        </div>
+
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="glass-card p-8 bg-gradient-to-br from-surface to-primary-950/20">
+          <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary-400" />
+            Personalized Recommendations
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {result.recommendations.map((rec, i) => (
+              <div key={i} className="flex gap-3 items-start p-4 bg-surfaceLight/30 rounded-xl border border-white/5">
+                <div className="mt-1"><BrainCircuit className="w-5 h-5 text-primary-400" /></div>
+                <p className="text-gray-300 leading-relaxed text-sm">{rec}</p>
               </div>
             ))}
           </div>
@@ -205,7 +243,7 @@ export function Prediction() {
         </div>
         <div className="flex gap-3">
           <button onClick={resetForm} className="px-4 py-2 rounded-lg glass hover:bg-white/10 text-gray-300 font-medium transition-all flex items-center gap-2 text-sm">
-            <RefreshCw className="w-4 h-4" /> Reset
+            <RefreshCw className="w-4 h-4" /> Reset Form
           </button>
           <button onClick={loadDemo} className="px-5 py-2 rounded-lg bg-primary-500/20 text-primary-400 border border-primary-500/30 hover:bg-primary-500/30 font-semibold transition-all flex items-center gap-2 text-sm shadow-[0_0_15px_rgba(14,165,233,0.15)]">
             <Play className="w-4 h-4 fill-primary-400" /> Launch Demo
@@ -221,19 +259,20 @@ export function Prediction() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center"
           >
-            <div className="glass-card p-10 flex flex-col items-center max-w-sm w-full text-center">
+            <div className="glass-card p-10 flex flex-col items-center max-w-sm w-full text-center border border-primary-500/20 shadow-[0_0_50px_rgba(14,165,233,0.2)]">
               <BrainCircuit className="w-16 h-16 text-primary-400 mb-6 animate-pulse-slow" />
               <h3 className="text-xl font-bold text-white mb-2">AI Processing</h3>
               <p className="text-gray-400 h-6">
-                {predictionStep === 1 && "Analyzing student data..."}
-                {predictionStep === 2 && "Evaluating academic indicators..."}
-                {predictionStep === 3 && "Generating prediction..."}
+                {predictionStep === 1 && "Collecting student information..."}
+                {predictionStep === 2 && "Analyzing academic indicators..."}
+                {predictionStep === 3 && "Evaluating performance factors..."}
+                {predictionStep === 4 && "Generating performance assessment..."}
               </p>
               <div className="w-full h-1 bg-surfaceLight mt-6 rounded-full overflow-hidden">
                 <motion.div 
                   className="h-full bg-primary-500 rounded-full"
                   initial={{ width: '0%' }}
-                  animate={{ width: `${(predictionStep / 3) * 100}%` }}
+                  animate={{ width: `${(predictionStep / 4) * 100}%` }}
                 />
               </div>
             </div>

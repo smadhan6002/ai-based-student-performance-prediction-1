@@ -27,24 +27,29 @@ export interface StudentInput {
   failedSubjects: number;
 }
 
-export type RiskLevel = 'Low' | 'Medium' | 'High';
+export type RiskLevel = 'Low Risk' | 'Medium Risk' | 'High Risk';
 export type PerformanceCategory = 'Excellent' | 'Good' | 'Average' | 'At Risk';
 
-export interface Factor {
+export interface FactorBreakdown {
   name: string;
   value: number;
+  weight: number;
+  contribution: number;
   max: number;
-  impact: 'positive' | 'negative' | 'neutral';
-  description: string;
 }
 
 export interface PredictionResult {
   score: number;
   category: PerformanceCategory;
   confidence: number;
+  confidenceType: "Demo Confidence";
   riskLevel: RiskLevel;
-  factors: Factor[];
+  breakdown: FactorBreakdown[];
+  positiveFactors: string[];
+  negativeFactors: string[];
   recommendations: string[];
+  inputSummary: StudentInput;
+  generatedAt: string;
 }
 
 export interface StudentRecord extends StudentInput {

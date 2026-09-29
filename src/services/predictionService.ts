@@ -1,124 +1,156 @@
-import type { StudentInput, PredictionResult, PerformanceCategory, RiskLevel, Factor } from '../types';
+import type { StudentInput, PredictionResult, PerformanceCategory, RiskLevel, FactorBreakdown } from '../types';
 
 /**
  * Demo Prediction Engine
- * Note: This simulates a machine learning model.
- * It uses simple heuristics for demonstration purposes.
+ * Note: This simulates a machine learning model based on a weighted mathematical formula.
  * In production, this would make an API call to a real ML backend (e.g., Python FastAPI).
  */
-export const predictPerformance = async (data: StudentInput): Promise<PredictionResult> => {
-  // Simulate network delay for AI processing effect
-  await new Promise(resolve => setTimeout(resolve, 2500));
-
-  // Weights for different factors
+const demoPrediction = (data: StudentInput): PredictionResult => {
+  // Weights
   const weights = {
-    attendance: 0.25,
-    internalMarks: 0.25,
+    attendance: 0.20,
+    internalMarks: 0.20,
     assignmentAverage: 0.15,
     previousMarks: 0.15,
-    studyHours: 0.10, // Max 12 hours mapped to 100
+    studyHours: 0.10,
     assignmentCompletion: 0.10,
+    participation: 0.10,
   };
 
-  const studyHoursScore = Math.min((data.studyHours / 12) * 100, 100);
+  const studyHoursNormalized = Math.min((data.studyHours / 12) * 100, 100);
 
-  // Penalty for failed subjects and low participation
-  const failedPenalty = data.failedSubjects * 5; // 5 points deduction per failure
-  const participationBonus = (data.participation / 100) * 5; 
+  const breakdown: FactorBreakdown[] = [
+    { name: 'Attendance', value: data.attendance, weight: 20, contribution: data.attendance * weights.attendance, max: 100 },
+    { name: 'Internal Marks', value: data.internalMarks, weight: 20, contribution: data.internalMarks * weights.internalMarks, max: 100 },
+    { name: 'Assignment Average', value: data.assignmentAverage, weight: 15, contribution: data.assignmentAverage * weights.assignmentAverage, max: 100 },
+    { name: 'Previous Marks', value: data.previousMarks, weight: 15, contribution: data.previousMarks * weights.previousMarks, max: 100 },
+    { name: 'Study Hours', value: data.studyHours, weight: 10, contribution: studyHoursNormalized * weights.studyHours, max: 12 },
+    { name: 'Assignment Completion', value: data.assignmentCompletion, weight: 10, contribution: data.assignmentCompletion * weights.assignmentCompletion, max: 100 },
+    { name: 'Participation', value: data.participation, weight: 10, contribution: data.participation * weights.participation, max: 100 },
+  ];
 
-  let score = (
-    (data.attendance * weights.attendance) +
-    (data.internalMarks * weights.internalMarks) +
-    (data.assignmentAverage * weights.assignmentAverage) +
-    (data.previousMarks * weights.previousMarks) +
-    (studyHoursScore * weights.studyHours) +
-    (data.assignmentCompletion * weights.assignmentCompletion)
-  );
+  let baseScore = breakdown.reduce((acc, curr) => acc + curr.contribution, 0);
 
-  score = score - failedPenalty + participationBonus;
-  score = Math.max(0, Math.min(100, Math.round(score))); // clamp between 0 and 100
+  // Failed subjects penalty
+  let penalty = 0;
+  if (data.failedSubjects === 1) penalty = 5;
+  else if (data.failedSubjects === 2) penalty = 10;
+  else if (data.failedSubjects === 3) penalty = 15;
+  else if (data.failedSubjects >= 4) penalty = 20;
+
+  let finalScore = Math.round(baseScore - penalty);
+  finalScore = Math.max(0, Math.min(100, finalScore));
 
   // Determine Category & Risk
   let category: PerformanceCategory = 'At Risk';
-  let riskLevel: RiskLevel = 'High';
-  let confidence = 0.65 + (Math.random() * 0.25); // Random confidence between 65% and 90%
+  let riskLevel: RiskLevel = 'High Risk';
 
-  if (score >= 80) {
+  if (finalScore >= 80) {
     category = 'Excellent';
-    riskLevel = 'Low';
-    confidence += 0.05;
-  } else if (score >= 60) {
+    riskLevel = 'Low Risk';
+  } else if (finalScore >= 60) {
     category = 'Good';
-    riskLevel = 'Low';
-  } else if (score >= 40) {
+    riskLevel = 'Low Risk';
+  } else if (finalScore >= 40) {
     category = 'Average';
-    riskLevel = 'Medium';
+    riskLevel = 'Medium Risk';
+  } else {
+    category = 'At Risk';
+    riskLevel = 'High Risk';
   }
 
-  confidence = Math.min(0.99, Number(confidence.toFixed(2)));
+  // Adjust risk based on critical factors
+  if (data.attendance < 60) {
+    riskLevel = riskLevel === 'Low Risk' ? 'Medium Risk' : 'High Risk';
+  }
+  if (data.failedSubjects >= 3) {
+    riskLevel = riskLevel === 'Low Risk' ? 'Medium Risk' : 'High Risk';
+  }
+  if (data.attendance < 50 || data.failedSubjects >= 4) {
+    riskLevel = 'High Risk';
+  }
 
-  // Generate Factors
-  const factors: Factor[] = [
-    {
-      name: 'Attendance',
-      value: data.attendance,
-      max: 100,
-      impact: data.attendance >= 75 ? 'positive' : 'negative',
-      description: data.attendance >= 75 ? 'Good attendance positively influences score.' : 'Low attendance is a risk factor.'
-    },
-    {
-      name: 'Internal Marks',
-      value: data.internalMarks,
-      max: 100,
-      impact: data.internalMarks >= 60 ? 'positive' : 'negative',
-      description: 'Core indicator of current semester understanding.'
-    },
-    {
-      name: 'Study Hours',
-      value: data.studyHours,
-      max: 12,
-      impact: data.studyHours >= 3 ? 'positive' : (data.studyHours < 1 ? 'negative' : 'neutral'),
-      description: 'Daily independent study time.'
-    },
-    {
-      name: 'Previous Performance',
-      value: data.previousMarks,
-      max: 100,
-      impact: data.previousMarks >= 60 ? 'positive' : 'negative',
-      description: 'Historical academic baseline.'
-    }
-  ];
+  // Demo Confidence Indicator
+  let confidence = 70;
+  if (data.attendance !== undefined) confidence += 5;
+  if (data.internalMarks !== undefined) confidence += 5;
+  if (data.previousMarks !== undefined) confidence += 5;
+  if (data.assignmentAverage !== undefined) confidence += 5;
+  if (data.studyHours !== undefined) confidence += 5;
+  if (data.participation !== undefined) confidence += 5;
+  confidence = Math.min(95, confidence);
 
-  // Generate Recommendations
+  // Positive and Negative Factors
+  const positiveFactors: string[] = [];
+  const negativeFactors: string[] = [];
   const recommendations: string[] = [];
-  
-  if (data.attendance < 75) {
-    recommendations.push('Improve attendance above 75% to ensure you do not miss critical lectures.');
-  }
-  if (data.studyHours < 2) {
-    recommendations.push('Consider increasing your focused study time to at least 2-3 hours daily.');
-  }
-  if (data.assignmentCompletion < 80) {
-    recommendations.push('Focus on completing all pending assignments. Consistent practice is key.');
-  }
-  if (data.failedSubjects > 0) {
-    recommendations.push('Prioritize clearing previous arrears/failed subjects during this semester.');
-  }
-  if (data.internalMarks < 50) {
-    recommendations.push('Focus on subjects with lower internal marks by seeking faculty assistance.');
+
+  if (data.attendance >= 85) {
+    positiveFactors.push("Strong attendance is supporting the student's performance.");
+  } else if (data.attendance < 75) {
+    negativeFactors.push("Attendance is below the recommended level.");
+    recommendations.push("Improve attendance and aim to maintain at least 75–85% participation.");
   }
 
-  if (recommendations.length === 0) {
-    recommendations.push('Maintain consistent academic performance. You are doing great!');
-    recommendations.push('Consider participating in extracurricular tech events or projects to enhance skills.');
+  if (data.internalMarks >= 80) {
+    positiveFactors.push("Strong internal assessment performance.");
+  } else if (data.internalMarks < 60) {
+    negativeFactors.push("Internal assessment marks require improvement.");
+    recommendations.push("Focus on internal assessments and clarify difficult topics with faculty.");
+  }
+
+  if (data.assignmentCompletion >= 85) {
+    positiveFactors.push("Consistent assignment completion.");
+  } else if (data.assignmentCompletion < 70) {
+    negativeFactors.push("Low assignment completion may affect academic performance.");
+    recommendations.push("Complete pending assignments consistently.");
+  }
+
+  if (data.studyHours >= 4) {
+    positiveFactors.push("Consistent study time is supporting performance.");
+  } else if (data.studyHours < 2) {
+    negativeFactors.push("Study time appears limited.");
+    recommendations.push("Gradually increase focused study time.");
+  }
+
+  if (data.participation >= 75) {
+    positiveFactors.push("Good classroom engagement.");
+  } else if (data.participation < 60) {
+    negativeFactors.push("Low classroom participation.");
+    recommendations.push("Participate more actively in classroom discussions and activities.");
+  }
+
+  if (data.failedSubjects > 0) {
+    negativeFactors.push("Previous failed subjects indicate an academic risk factor.");
+    recommendations.push("Prioritize clearing pending subjects and strengthen foundational concepts.");
+  }
+
+  if (negativeFactors.length === 0) {
+    recommendations.push("Maintain your current academic routine and continue consistent performance.");
   }
 
   return {
-    score,
+    score: finalScore,
     category,
-    confidence,
     riskLevel,
-    factors,
-    recommendations
+    confidence,
+    confidenceType: "Demo Confidence",
+    breakdown,
+    positiveFactors,
+    negativeFactors,
+    recommendations,
+    inputSummary: { ...data },
+    generatedAt: new Date().toISOString()
   };
+};
+
+export const predictStudentPerformance = async (data: StudentInput): Promise<PredictionResult> => {
+  // Simulate network delay for AI processing effect
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  // Future API call: 
+  // const response = await fetch('/predict', { method: 'POST', body: JSON.stringify(data) });
+  // return response.json();
+  
+  return demoPrediction(data);
 };

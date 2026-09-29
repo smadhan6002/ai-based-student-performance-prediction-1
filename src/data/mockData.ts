@@ -1,6 +1,6 @@
-import type { StudentRecord } from '../types';
+import type { StudentRecord, StudentInput } from '../types';
 
-export const mockStudents: StudentRecord[] = [
+const mockInputs: StudentInput[] = [
   {
     name: 'Madhan S',
     id: 'ST2023001',
@@ -14,16 +14,7 @@ export const mockStudents: StudentRecord[] = [
     studyHours: 4.5,
     assignmentCompletion: 95,
     participation: 85,
-    failedSubjects: 0,
-    date: '2023-10-15',
-    prediction: {
-      score: 84,
-      category: 'Excellent',
-      confidence: 0.92,
-      riskLevel: 'Low',
-      factors: [],
-      recommendations: ['Maintain consistent academic performance. You are doing great!']
-    }
+    failedSubjects: 0
   },
   {
     name: 'Priya K',
@@ -38,16 +29,7 @@ export const mockStudents: StudentRecord[] = [
     studyHours: 6,
     assignmentCompletion: 100,
     participation: 90,
-    failedSubjects: 0,
-    date: '2023-10-14',
-    prediction: {
-      score: 91,
-      category: 'Excellent',
-      confidence: 0.95,
-      riskLevel: 'Low',
-      factors: [],
-      recommendations: ['Excellent work. Keep it up for the final semester!']
-    }
+    failedSubjects: 0
   },
   {
     name: 'Rahul V',
@@ -62,16 +44,7 @@ export const mockStudents: StudentRecord[] = [
     studyHours: 1.5,
     assignmentCompletion: 70,
     participation: 40,
-    failedSubjects: 1,
-    date: '2023-10-14',
-    prediction: {
-      score: 54,
-      category: 'Average',
-      confidence: 0.78,
-      riskLevel: 'Medium',
-      factors: [],
-      recommendations: ['Improve attendance above 75%.', 'Consider increasing your focused study time.']
-    }
+    failedSubjects: 1
   },
   {
     name: 'Sneha M',
@@ -86,159 +59,29 @@ export const mockStudents: StudentRecord[] = [
     studyHours: 0.5,
     assignmentCompletion: 50,
     participation: 20,
-    failedSubjects: 3,
-    date: '2023-10-13',
-    prediction: {
-      score: 31,
-      category: 'At Risk',
-      confidence: 0.85,
-      riskLevel: 'High',
-      factors: [],
-      recommendations: ['Critical: Prioritize clearing previous arrears.', 'Urgent: Improve attendance immediately.']
-    }
-  },
-  {
-    name: 'Vikram R',
-    id: 'ST2023005',
-    department: 'Mechanical Engineering',
-    year: '1st Year',
-    semester: 'Semester 1',
-    attendance: 78,
-    internalMarks: 65,
-    assignmentAverage: 70,
-    previousMarks: 60,
-    studyHours: 2.5,
-    assignmentCompletion: 80,
-    participation: 60,
-    failedSubjects: 0,
-    date: '2023-10-12',
-    prediction: {
-      score: 68,
-      category: 'Good',
-      confidence: 0.81,
-      riskLevel: 'Low',
-      factors: [],
-      recommendations: ['Good start. Try to participate more in class discussions.']
-    }
-  },
-  {
-    name: 'Anjali T',
-    id: 'ST2023006',
-    department: 'Civil Engineering',
-    year: '4th Year',
-    semester: 'Semester 8',
-    attendance: 85,
-    internalMarks: 75,
-    assignmentAverage: 80,
-    previousMarks: 72,
-    studyHours: 3,
-    assignmentCompletion: 85,
-    participation: 75,
-    failedSubjects: 0,
-    date: '2023-10-11',
-    prediction: {
-      score: 77,
-      category: 'Good',
-      confidence: 0.88,
-      riskLevel: 'Low',
-      factors: [],
-      recommendations: ['Maintain your current study schedule for final exams.']
-    }
-  },
-  {
-    name: 'Arjun N',
-    id: 'ST2023007',
-    department: 'Electrical & Electronics Engineering',
-    year: '2nd Year',
-    semester: 'Semester 4',
-    attendance: 55,
-    internalMarks: 48,
-    assignmentAverage: 55,
-    previousMarks: 50,
-    studyHours: 1,
-    assignmentCompletion: 60,
-    participation: 30,
-    failedSubjects: 2,
-    date: '2023-10-10',
-    prediction: {
-      score: 45,
-      category: 'Average',
-      confidence: 0.76,
-      riskLevel: 'Medium',
-      factors: [],
-      recommendations: ['Clear pending subjects.', 'Improve attendance to at least 75%.']
-    }
-  },
-  {
-    name: 'Kavya S',
-    id: 'ST2023008',
-    department: 'Artificial Intelligence & Data Science',
-    year: '3rd Year',
-    semester: 'Semester 6',
-    attendance: 92,
-    internalMarks: 88,
-    assignmentAverage: 90,
-    previousMarks: 85,
-    studyHours: 4,
-    assignmentCompletion: 95,
-    participation: 85,
-    failedSubjects: 0,
-    date: '2023-10-09',
-    prediction: {
-      score: 87,
-      category: 'Excellent',
-      confidence: 0.91,
-      riskLevel: 'Low',
-      factors: [],
-      recommendations: ['Great job. Explore advanced topics in AI.']
-    }
-  },
-  {
-    name: 'Rohan P',
-    id: 'ST2023009',
-    department: 'Computer Science Engineering',
-    year: '3rd Year',
-    semester: 'Semester 5',
-    attendance: 72,
-    internalMarks: 68,
-    assignmentAverage: 75,
-    previousMarks: 65,
-    studyHours: 2,
-    assignmentCompletion: 70,
-    participation: 50,
-    failedSubjects: 0,
-    date: '2023-10-08',
-    prediction: {
-      score: 69,
-      category: 'Good',
-      confidence: 0.82,
-      riskLevel: 'Low',
-      factors: [],
-      recommendations: ['Your attendance is slightly below recommended levels. Try to improve it.']
-    }
-  },
-  {
-    name: 'Neha C',
-    id: 'ST2023010',
-    department: 'Information Technology',
-    year: '1st Year',
-    semester: 'Semester 2',
-    attendance: 80,
-    internalMarks: 72,
-    assignmentAverage: 78,
-    previousMarks: 70,
-    studyHours: 3,
-    assignmentCompletion: 85,
-    participation: 65,
-    failedSubjects: 0,
-    date: '2023-10-07',
+    failedSubjects: 3
+  }
+];
+
+export const mockStudents: StudentRecord[] = mockInputs.map(input => {
+  // We mock the prediction so we don't have to duplicate the logic here.
+  // The storage will initialize it properly. For now we can just provide a dummy structure
+  // that won't be used since the UI relies on dynamic data or localStorage.
+  return {
+    ...input,
+    date: new Date().toISOString(),
     prediction: {
       score: 75,
       category: 'Good',
-      confidence: 0.86,
-      riskLevel: 'Low',
-      factors: [],
-      recommendations: ['Solid performance. Keep maintaining this consistency.']
+      riskLevel: 'Low Risk',
+      confidence: 90,
+      confidenceType: "Demo Confidence",
+      breakdown: [],
+      positiveFactors: [],
+      negativeFactors: [],
+      recommendations: [],
+      inputSummary: input,
+      generatedAt: new Date().toISOString()
     }
-  }
-];
+  } as StudentRecord;
+});
