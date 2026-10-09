@@ -42,7 +42,8 @@ export interface PredictionResult {
   score: number;
   category: PerformanceCategory;
   confidence: number;
-  confidenceType: "Demo Confidence";
+  confidenceType: "Demo Confidence" | "Model Probability";
+  probabilities?: Record<string, number>;
   riskLevel: RiskLevel;
   breakdown: FactorBreakdown[];
   positiveFactors: string[];

@@ -144,6 +144,88 @@ const demoPrediction = (data: StudentInput): PredictionResult => {
   };
 };
 
+export const predictWithMLModel = async (data: StudentInput): Promise<PredictionResult> => {
+  // In development: VITE_ML_API_URL is unset (empty), so apiUrl = '' and requests go to
+  // /predict (relative URL). The Vite dev-server proxy forwards this to http://localhost:8000/predict.
+  // In production: set VITE_ML_API_URL=https://your-api.com to use an absolute URL directly.
+  const apiUrl = import.meta.env.VITE_ML_API_URL ?? '';
+  
+  // Call FastAPI backend.
+  // Student identity fields (student_name, student_id, department, year, semester) are sent
+  // for Supabase persistence. FastAPI extracts only the 8 numeric fields before calling the ML model.
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        // Identity — persisted in Supabase, not passed to ML model
+        student_name:  data.name,
+        student_id:    data.id,
+        department:    data.department,
+        year:          data.year,
+        semester:      data.semester,
+        // Academic inputs — sent to both ML model and Supabase
+        attendance:               Number(data.attendance),
+        internal_marks:           Number(data.internalMarks),
+        assignment_average:       Number(data.assignmentAverage),
+        previous_semester_marks:  Number(data.previousMarks),
+        study_hours:              Number(data.studyHours),
+        assignment_completion:    Number(data.assignmentCompletion),
+        class_participation:      Number(data.participation),
+        failed_subjects:          Number(data.failedSubjects),
+      })
+    });
+  } catch {
+    // Network-level error: server unreachable, CORS blocked at preflight, etc.
+    throw new Error('Failed to fetch — network error or server unreachable.');
+  }
+
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch from ML backend. Status: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const rawCategory: string = result.prediction ?? '';
+
+  // Normalize probabilities: backend may return "At Risk" (with space) or "At_Risk" (underscore)
+  // depending on Pydantic serialization. Standardize to space-separated display keys.
+  const rawProbabilities: Record<string, number> = result.probabilities || {};
+  const probabilities: Record<string, number> = {};
+  for (const [key, val] of Object.entries(rawProbabilities)) {
+    const normalizedKey = key.replace(/_/g, ' '); // "At_Risk" → "At Risk"
+    probabilities[normalizedKey] = val as number;
+  }
+
+  // Normalize category key (handles "At_Risk" → "At Risk")
+  const normalizedCategory = rawCategory.replace(/_/g, ' ') as PerformanceCategory;
+  const maxProbability = probabilities[normalizedCategory] ?? probabilities[rawCategory] ?? 0;
+
+  // Reuse the demo engine for Student Input Analysis (factor bars) and rule-based recommendations.
+  // These are clearly labelled in the UI — NOT falsely claimed to be direct ML model outputs.
+  const demoRes = demoPrediction(data);
+  
+  // Risk level derived from the ML-predicted category
+  let riskLevel: RiskLevel = 'High Risk';
+  if (normalizedCategory === 'Excellent' || normalizedCategory === 'Good') riskLevel = 'Low Risk';
+  else if (normalizedCategory === 'Average') riskLevel = 'Medium Risk';
+  
+  // Express max class probability as a percentage for the "Model Probability" panel
+  const probabilityPercentage = Math.round(maxProbability * 100);
+
+  return {
+    ...demoRes,
+    score: probabilityPercentage, 
+    category: normalizedCategory,
+    confidence: probabilityPercentage,
+    confidenceType: "Model Probability",
+    probabilities: probabilities,
+    riskLevel,
+    generatedAt: new Date().toISOString()
+  };
+};
+
 export const predictStudentPerformance = async (data: StudentInput): Promise<PredictionResult> => {
   // Simulate network delay for AI processing effect
   await new Promise(resolve => setTimeout(resolve, 2000));

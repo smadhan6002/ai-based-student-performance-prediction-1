@@ -1,80 +1,61 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  BrainCircuit, 
+  Home, 
+  FileSpreadsheet, 
+  BarChart3, 
   Users, 
-  Info, 
-  Home,
-  Menu,
-  X
+  BookOpen, 
+  Menu, 
+  X, 
+  GraduationCap,
+  Database,
+  Cpu
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-const navItems = [
-  { path: '/', label: 'Home', icon: Home },
-  { path: '/predict', label: 'Predict Performance', icon: BrainCircuit },
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/students', label: 'Students', icon: Users },
-  { path: '/about', label: 'About Project', icon: Info },
+interface NavItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+}
+
+const navItems: NavItem[] = [
+  { path: '/', label: 'Home', icon: Home, description: 'System overview and quick access' },
+  { path: '/predict', label: 'Predict Performance', icon: FileSpreadsheet, description: 'Student academic assessment' },
+  { path: '/dashboard', label: 'Dashboard', icon: BarChart3, description: 'Cohort analytics and metrics' },
+  { path: '/students', label: 'Students', icon: Users, description: 'Student directory and records' },
+  { path: '/about', label: 'About Project', icon: BookOpen, description: 'Engineering specifications' },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const currentNav = navItems.find(item => item.path === location.pathname) || navItems[0];
+
   return (
-    <div className="min-h-screen flex bg-background text-gray-100 overflow-hidden">
-      {/* Sidebar for Desktop */}
-      <aside className="hidden md:flex flex-col w-64 glass-panel m-4 border-white/10 z-20">
-        <div className="p-6 flex items-center gap-3 border-b border-white/10">
-          <div className="p-2 bg-primary-500/20 rounded-lg">
-            <BrainCircuit className="w-6 h-6 text-primary-400" />
+    <div className="min-h-screen flex bg-app-bg text-text-primary antialiased">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-64 bg-app-secondary border-r border-app-border z-20 shrink-0">
+        {/* Brand / Logo Area */}
+        <div className="h-16 px-6 flex items-center gap-3 border-b border-app-border bg-app-secondary">
+          <div className="w-8 h-8 rounded-md bg-brand-blue/10 border border-brand-blue/30 flex items-center justify-center text-brand-blue">
+            <GraduationCap className="w-5 h-5" />
           </div>
-          <span className="font-bold text-lg text-gradient">AI Predictor</span>
+          <div>
+            <div className="font-semibold text-sm tracking-tight text-white leading-tight">AI Predictor</div>
+            <div className="text-[11px] text-text-muted leading-tight">Academic Analytics</div>
+          </div>
         </div>
-        
-        <nav className="flex-1 p-4 space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300",
-                  isActive 
-                    ? "bg-primary-500/10 text-primary-400 border border-primary-500/20 shadow-[0_0_15px_rgba(14,165,233,0.1)]" 
-                    : "text-gray-400 hover:text-gray-100 hover:bg-white/5"
-                )}
-              >
-                <Icon className={cn("w-5 h-5", isActive ? "text-primary-400" : "text-gray-400")} />
-                <span className="font-medium">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
 
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 glass-panel border-x-0 border-t-0 rounded-none z-30 flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <BrainCircuit className="w-5 h-5 text-primary-400" />
-          <span className="font-bold text-gradient">AI Predictor</span>
-        </div>
-        <button 
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 text-gray-400 hover:text-white"
-        >
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
-      </div>
-
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-20 pt-16 bg-background/95 backdrop-blur-xl">
-          <nav className="p-4 space-y-2">
+        {/* Navigation Section */}
+        <div className="px-3 py-4">
+          <div className="px-3 pb-2 text-[11px] font-semibold text-text-muted uppercase tracking-wider">
+            Academic Operations
+          </div>
+          <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -82,31 +63,129 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.path}
                   to={item.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-all",
-                    isActive ? "bg-primary-500/20 text-primary-400" : "text-gray-400"
+                    "flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-medium transition-colors relative",
+                    isActive
+                      ? "bg-brand-blue/10 text-white font-semibold"
+                      : "text-text-secondary hover:text-text-primary hover:bg-app-hover"
                   )}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  {/* Subtle active accent indicator */}
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-blue rounded-r" />
+                  )}
+                  <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-brand-blue" : "text-text-muted")} />
+                  <span>{item.label}</span>
                 </Link>
               );
             })}
           </nav>
         </div>
-      )}
 
-      {/* Main Content */}
-      <main className="flex-1 relative h-screen overflow-y-auto scroll-smooth pt-16 md:pt-0">
-        {/* Subtle Background Glows */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-500/10 rounded-full blur-[120px] -z-10 pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] -z-10 pointer-events-none" />
-        
-        <div className="p-4 md:p-8 max-w-7xl mx-auto min-h-full">
-          {children}
+        {/* Sidebar Footer — Academic Context */}
+        <div className="mt-auto p-4 border-t border-app-border bg-app-surface/50 text-xs">
+          <div className="text-text-muted font-medium mb-1">Academic Session</div>
+          <div className="text-text-primary font-semibold">AY 2026–2027 • Odd Sem</div>
+          <div className="text-[11px] text-text-muted mt-0.5">Faculty Assessment Portal</div>
         </div>
-      </main>
+      </aside>
+
+      {/* Main Container */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        {/* Top Header */}
+        <header className="h-16 px-4 md:px-8 border-b border-app-border bg-app-secondary/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* Mobile menu trigger */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden p-2 rounded-btn text-text-secondary hover:text-white hover:bg-app-hover border border-app-border"
+              aria-label="Open Navigation Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-base font-semibold text-text-primary leading-tight">
+                {currentNav.label}
+              </h1>
+              <p className="text-xs text-text-muted hidden sm:block leading-tight">
+                {currentNav.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Header Status Badges */}
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-badge bg-app-surface border border-app-border text-xs text-text-secondary">
+              <span className="w-2 h-2 rounded-full bg-semantic-success inline-block"></span>
+              <Cpu className="w-3.5 h-3.5 text-text-muted" />
+              <span>Random Forest ML Active</span>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-badge bg-app-surface border border-app-border text-xs text-text-secondary">
+              <Database className="w-3.5 h-3.5 text-brand-blue" />
+              <span>Supabase Connected</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Mobile Navigation Drawer */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 flex">
+            <div 
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <div className="relative w-72 max-w-[80vw] bg-app-secondary border-r border-app-border flex flex-col h-full z-10">
+              <div className="h-16 px-6 flex items-center justify-between border-b border-app-border">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-md bg-brand-blue/10 border border-brand-blue/30 flex items-center justify-center text-brand-blue">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <span className="font-semibold text-sm text-white">AI Predictor</span>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1.5 rounded-md text-text-muted hover:text-white hover:bg-app-hover"
+                  aria-label="Close menu"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <nav className="p-3 space-y-1">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-btn text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-brand-blue/10 text-white font-semibold"
+                          : "text-text-secondary hover:text-white hover:bg-app-hover"
+                      )}
+                    >
+                      <Icon className={cn("w-4 h-4", isActive ? "text-brand-blue" : "text-text-muted")} />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-auto p-4 border-t border-app-border text-xs text-text-muted">
+                AY 2026–2027 • Faculty & Coordinator Portal
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Page Content Body */}
+        <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

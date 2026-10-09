@@ -1,112 +1,201 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Search, Eye } from 'lucide-react';
-import { getPredictionHistory } from '../services/predictionStorage';
+import { useState, useEffect } from 'react';
+import { Search, Eye, RefreshCw } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { StudentDetailsModal } from '../components/StudentDetailsModal';
+import { supabase } from '../services/supabaseClient';
 
 export function Students() {
   const [searchTerm, setSearchTerm] = useState('');
-  const students = getPredictionHistory();
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, student_id, student_name, department, year, semester, predictions(*)')
+        .order('created_at', { foreignTable: 'predictions', ascending: false });
+
+      if (error) {
+        console.error('Error fetching students from Supabase:', error);
+      } else if (data) {
+        setStudents(data);
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const handleViewStudent = (student: any) => {
+    setSelectedStudent(student);
+    setIsModalOpen(true);
+  };
   
   const filteredStudents = students.filter(student => 
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    student.department.toLowerCase().includes(searchTerm.toLowerCase())
+    (student.student_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.student_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (student.department || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getCategoryColor = (category: string) => {
+  const getCategoryBadgeClass = (category: string) => {
     switch(category) {
-      case 'Excellent': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-      case 'Good': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      case 'Average': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
-      case 'At Risk': return 'bg-red-500/20 text-red-400 border-red-500/30';
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+      case 'Excellent': 
+        return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25';
+      case 'Good': 
+        return 'bg-blue-500/10 text-blue-400 border border-blue-500/25';
+      case 'Average': 
+        return 'bg-amber-500/10 text-amber-400 border border-amber-500/25';
+      case 'At Risk': 
+        return 'bg-red-500/10 text-red-400 border border-red-500/25';
+      default: 
+        return 'bg-gray-500/10 text-gray-400 border border-gray-500/25';
     }
   };
 
   const getRiskColor = (risk: string) => {
     switch(risk) {
-      case 'Low': return 'text-emerald-400';
-      case 'Medium': return 'text-yellow-400';
-      case 'High': return 'text-red-400';
-      default: return 'text-gray-400';
+      case 'Low Risk': return 'text-semantic-success';
+      case 'Medium Risk': return 'text-semantic-warning';
+      case 'High Risk': return 'text-semantic-danger';
+      default: return 'text-text-muted';
     }
   };
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
+      {/* Directory Header & Search Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b border-app-border pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Student Directory</h1>
-          <p className="text-gray-400">View and manage student predictions and records.</p>
+          <h1 className="text-xl font-bold text-white tracking-tight">Student Directory</h1>
+          <p className="text-xs text-text-muted mt-0.5">Enrolled student profiles and latest academic performance predictions.</p>
         </div>
-        <div className="w-full md:w-auto">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input 
               type="text" 
-              placeholder="Search students, IDs..." 
+              placeholder="Search by name, roll no, department..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full md:w-80 pl-10 pr-4 py-2 glass-input h-11"
+              className="academic-input w-full pl-9 pr-3 py-2 h-9 text-xs"
             />
           </div>
+          <button
+            onClick={fetchStudents}
+            disabled={loading}
+            className="btn-secondary h-9 px-3 text-xs"
+            title="Reload student directory"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+          </button>
         </div>
       </div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass-card overflow-hidden"
-      >
+      {/* Directory Table */}
+      <div className="academic-card bg-app-surface overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left text-sm border-collapse">
             <thead>
-              <tr className="border-b border-white/10 text-sm font-semibold text-gray-400">
-                <th className="p-4">Student ID</th>
-                <th className="p-4">Name</th>
-                <th className="p-4">Department</th>
-                <th className="p-4">Score</th>
-                <th className="p-4">Prediction</th>
-                <th className="p-4">Risk Level</th>
-                <th className="p-4 text-right">Actions</th>
+              <tr className="border-b border-app-border text-xs font-semibold text-text-muted uppercase tracking-wider bg-app-secondary/50">
+                <th className="p-3.5">Student ID</th>
+                <th className="p-3.5">Student Name</th>
+                <th className="p-3.5">Department</th>
+                <th className="p-3.5">Score</th>
+                <th className="p-3.5">Prediction</th>
+                <th className="p-3.5">Risk Level</th>
+                <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-sm">
-              {filteredStudents.map((student, i) => (
-                <motion.tr 
-                  key={student.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="hover:bg-white/5 transition-colors group"
-                >
-                  <td className="p-4 font-mono text-gray-400">{student.id}</td>
-                  <td className="p-4 font-medium text-white">{student.name}</td>
-                  <td className="p-4 text-gray-400 truncate max-w-[200px]" title={student.department}>{student.department}</td>
-                  <td className="p-4 text-white font-bold">{student.prediction.score}/100</td>
-                  <td className="p-4">
-                    <span className={cn("px-3 py-1 rounded-full text-xs font-semibold border", getCategoryColor(student.prediction.category))}>
-                      {student.prediction.category}
-                    </span>
-                  </td>
-                  <td className="p-4 font-medium">
-                    <span className={getRiskColor(student.prediction.riskLevel)}>
-                      {student.prediction.riskLevel}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <button className="p-2 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 rounded-lg hover:bg-white/10" title="View Details">
-                      <Eye className="w-5 h-5" />
-                    </button>
-                  </td>
-                </motion.tr>
-              ))}
-              
-              {filteredStudents.length === 0 && (
+            <tbody className="divide-y divide-app-border text-xs">
+              {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-gray-400">
-                    No students found matching your search.
+                  <td colSpan={7} className="p-8 text-center text-text-muted">
+                    <div className="flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-brand-blue" />
+                      <span>Loading student directory records...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredStudents.map((student) => {
+                const latestPrediction = student.predictions?.[0];
+                
+                // Calculate risk level
+                const cat = latestPrediction?.prediction;
+                const riskLevel = cat 
+                  ? (cat === 'Excellent' || cat === 'Good' ? 'Low Risk' : (cat === 'Average' ? 'Medium Risk' : 'High Risk'))
+                  : 'N/A';
+                
+                // Calculate max probability score
+                let score = 0;
+                if (latestPrediction) {
+                  const probs = [
+                    latestPrediction.excellent_probability || 0,
+                    latestPrediction.good_probability || 0,
+                    latestPrediction.average_probability || 0,
+                    latestPrediction.at_risk_probability || 0
+                  ];
+                  score = Math.round(Math.max(...probs) * 100);
+                }
+
+                return (
+                  <tr 
+                    key={student.id}
+                    className="hover:bg-app-hover transition-colors group"
+                  >
+                    <td className="p-3.5 font-mono text-text-secondary font-medium">
+                      {student.student_id}
+                    </td>
+                    <td className="p-3.5 font-medium text-white">
+                      {student.student_name}
+                    </td>
+                    <td className="p-3.5 text-text-secondary truncate max-w-[220px]" title={student.department}>
+                      {student.department}
+                    </td>
+                    <td className="p-3.5 font-semibold text-white">
+                      {latestPrediction ? `${score}/100` : '—'}
+                    </td>
+                    <td className="p-3.5">
+                      {latestPrediction ? (
+                        <span className={cn("badge-academic", getCategoryBadgeClass(latestPrediction.prediction))}>
+                          {latestPrediction.prediction}
+                        </span>
+                      ) : (
+                        <span className="text-text-muted text-xs">Not Evaluated</span>
+                      )}
+                    </td>
+                    <td className="p-3.5 font-medium">
+                      <span className={getRiskColor(riskLevel)}>
+                        {riskLevel}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <button 
+                        onClick={() => handleViewStudent(student)}
+                        className="p-1.5 rounded-md text-text-secondary hover:text-white hover:bg-app-secondary border border-transparent hover:border-app-border transition-colors" 
+                        title="View Student Details"
+                        aria-label={`View details for ${student.student_name}`}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              
+              {!loading && filteredStudents.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-text-muted">
+                    No student records found matching "{searchTerm}".
                   </td>
                 </tr>
               )}
@@ -114,14 +203,23 @@ export function Students() {
           </table>
         </div>
         
-        <div className="p-4 border-t border-white/10 flex items-center justify-between text-sm text-gray-400">
-          <span>Showing {filteredStudents.length} results</span>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-colors disabled:opacity-50" disabled>Previous</button>
-            <button className="px-4 py-2 rounded-lg glass hover:bg-white/10 transition-colors disabled:opacity-50" disabled>Next</button>
+        {/* Table Footer with Summary */}
+        <div className="p-3.5 border-t border-app-border flex items-center justify-between text-xs text-text-muted bg-app-surface">
+          <span>Showing {filteredStudents.length} of {students.length} student records</span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full bg-semantic-success" />
+            <span>Supabase Verified</span>
           </div>
         </div>
-      </motion.div>
+      </div>
+
+      {/* Student Details Modal */}
+      <StudentDetailsModal 
+        student={selectedStudent}
+        studentId={selectedStudent?.id} 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
     </div>
   );
 }

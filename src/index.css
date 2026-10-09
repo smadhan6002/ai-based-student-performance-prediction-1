@@ -1,48 +1,171 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-primary: #0F1115;
+    --bg-secondary: #15181D;
+    --bg-surface: #191D23;
+    --bg-elevated: #1E232A;
+    --border-color: #2A3038;
+    --text-primary: #F4F6F8;
+    --text-secondary: #A7AFBA;
+    --text-muted: #737C88;
+    --brand-blue: #3B82F6;
+  }
+
   body {
-    @apply bg-background text-gray-100 font-sans antialiased selection:bg-primary-500/30;
+    background-color: #0F1115;
+    color: #F4F6F8;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #F4F6F8;
+    letter-spacing: -0.015em;
   }
 }
 
 @layer utilities {
+  /* Restrained Academic Platform Surfaces */
+  .academic-card {
+    background-color: #191D23;
+    border: 1px solid #2A3038;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .academic-card-elevated {
+    background-color: #1E232A;
+    border: 1px solid #2A3038;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Academic Input & Controls */
+  .academic-input {
+    background-color: #15181D;
+    border: 1px solid #2A3038;
+    border-radius: 8px;
+    color: #F4F6F8;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .academic-input:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 1px #3B82F6;
+  }
+
+  .academic-input::placeholder {
+    color: #737C88;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    background-color: #3B82F6;
+    color: #FFFFFF;
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: background-color 150ms ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .btn-primary:hover {
+    background-color: #2563EB;
+  }
+
+  .btn-secondary {
+    background-color: #191D23;
+    color: #F4F6F8;
+    border: 1px solid #2A3038;
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    transition: background-color 150ms ease, border-color 150ms ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .btn-secondary:hover {
+    background-color: #1E232A;
+    border-color: #3B82F6;
+  }
+
+  /* Semantic Badges */
+  .badge-academic {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    line-height: 1rem;
+  }
+
+  /* Backward Compatibility with legacy glass- classes without glowing */
   .glass {
-    @apply bg-white/5 backdrop-blur-lg border border-white/10 shadow-xl;
+    background-color: #191D23;
+    border: 1px solid #2A3038;
+    border-radius: 12px;
   }
   .glass-card {
-    @apply bg-surface/80 backdrop-blur-md border border-white/5 shadow-2xl rounded-2xl;
+    background-color: #191D23;
+    border: 1px solid #2A3038;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.15);
   }
   .glass-panel {
-    @apply bg-white/5 backdrop-blur-md border border-white/5 rounded-2xl;
+    background-color: #15181D;
+    border: 1px solid #2A3038;
+    border-radius: 12px;
   }
   .glass-input {
-    @apply bg-surfaceLight/50 border border-white/10 focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/50 transition-all rounded-lg text-white;
+    background-color: #15181D;
+    border: 1px solid #2A3038;
+    border-radius: 8px;
+    color: #F4F6F8;
+    font-size: 0.875rem;
+    transition: border-color 150ms ease;
   }
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-blue-600;
+  .glass-input:focus {
+    outline: none;
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 1px #3B82F6;
   }
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: #0F1115;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #2A3038;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #3B82F6;
 }

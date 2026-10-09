@@ -1,11 +1,19 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Sparkles, BrainCircuit, ArrowLeft, RefreshCw, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
-import { predictStudentPerformance } from '../services/predictionService';
+import { 
+  Play, 
+  ArrowLeft, 
+  RefreshCw, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Users
+} from 'lucide-react';
+
+import { predictStudentPerformance, predictWithMLModel } from '../services/predictionService';
 import { savePrediction } from '../services/predictionStorage';
 import type { StudentInput, PredictionResult, Department, Year, Semester } from '../types';
 import { cn } from '../utils/cn';
-import { PieChart, Pie, ResponsiveContainer, Cell } from 'recharts';
 
 const INITIAL_STATE: StudentInput = {
   name: '',
@@ -23,9 +31,9 @@ const INITIAL_STATE: StudentInput = {
   failedSubjects: 0
 };
 
-const DEMO_DATA: StudentInput = {
+const SAMPLE_STUDENT_DATA: StudentInput = {
   name: 'Madhan S',
-  id: 'ST2023001',
+  id: '412724243023',
   department: 'Artificial Intelligence & Data Science',
   year: '3rd Year',
   semester: 'Semester 5',
@@ -50,48 +58,70 @@ const DEPARTMENTS: Department[] = [
 ];
 
 const YEARS: Year[] = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-const SEMESTERS: Semester[] = ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4', 'Semester 5', 'Semester 6', 'Semester 7', 'Semester 8'];
+const SEMESTERS: Semester[] = [
+  'Semester 1', 'Semester 2', 'Semester 3', 'Semester 4',
+  'Semester 5', 'Semester 6', 'Semester 7', 'Semester 8'
+];
 
 export function Prediction() {
   const [formData, setFormData] = useState<StudentInput>(INITIAL_STATE);
   const [isPredicting, setIsPredicting] = useState(false);
   const [predictionStep, setPredictionStep] = useState(0);
   const [result, setResult] = useState<PredictionResult | null>(null);
+  const [predictionMode, setPredictionMode] = useState<'demo' | 'ml'>('ml');
+  const [error, setError] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     let parsedValue: any = value;
-    if (type === 'number' || type === 'range') {
-      parsedValue = Number(value);
+    if (type === 'number') {
+      parsedValue = value === '' ? '' : Number(value);
     }
     setFormData(prev => ({ ...prev, [name]: parsedValue }));
   };
 
-  const loadDemo = () => {
-    setFormData(DEMO_DATA);
+  const loadSampleData = () => {
+    setFormData(SAMPLE_STUDENT_DATA);
   };
 
   const resetForm = () => {
     setFormData(INITIAL_STATE);
     setResult(null);
+    setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsPredicting(true);
-    setPredictionStep(1); // "Collecting student information..."
-    
-    setTimeout(() => setPredictionStep(2), 600); // "Analyzing academic indicators..."
-    setTimeout(() => setPredictionStep(3), 1200); // "Evaluating performance factors..."
-    setTimeout(() => setPredictionStep(4), 1800); // "Generating performance assessment..."
+    setPredictionStep(1);
+
+    setTimeout(() => setPredictionStep(2), 350);
+    setTimeout(() => setPredictionStep(3), 700);
+    setTimeout(() => setPredictionStep(4), 1050);
 
     try {
-      const res = await predictStudentPerformance(formData);
+      let res: PredictionResult;
+      if (predictionMode === 'ml') {
+        res = await predictWithMLModel(formData);
+      } else {
+        res = await predictStudentPerformance(formData);
+      }
       savePrediction(res);
       setResult(res);
-    } catch (error) {
-      console.error(error);
-      alert("An error occurred during prediction.");
+    } catch (err: unknown) {
+      console.error(err);
+      if (predictionMode === 'ml') {
+        const apiUrl = import.meta.env.VITE_ML_API_URL || 'http://localhost:8000';
+        const errMsg = err instanceof Error ? err.message : String(err);
+        if (errMsg.toLowerCase().includes('cors') || errMsg.toLowerCase().includes('fetch') || errMsg.toLowerCase().includes('network') || errMsg.toLowerCase().includes('failed')) {
+          setError(`Unable to connect to the ML prediction server at ${apiUrl}. Please verify the FastAPI service is active, or toggle to the Offline Demo Engine.`);
+        } else {
+          setError(`ML prediction failed: ${errMsg}`);
+        }
+      } else {
+        setError('An unexpected error occurred during prediction evaluation. Please retry.');
+      }
     } finally {
       setIsPredicting(false);
       setPredictionStep(0);
@@ -99,270 +129,631 @@ export function Prediction() {
   };
 
   const getCategoryColor = (category: string) => {
-    switch(category) {
-      case 'Excellent': return '#10b981'; // emerald
-      case 'Good': return '#3b82f6'; // blue
-      case 'Average': return '#f59e0b'; // yellow
-      case 'At Risk': return '#ef4444'; // red
-      default: return '#71717a';
+    switch (category) {
+      case 'Excellent': return '#22C55E';
+      case 'Good': return '#3B82F6';
+      case 'Average': return '#F59E0B';
+      case 'At Risk': return '#EF4444';
+      default: return '#737C88';
     }
   };
 
-  if (result) {
-    return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 pb-12 max-w-5xl mx-auto">
-        <button onClick={() => setResult(null)} className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-          Back to Form
-        </button>
+  const getCategoryBadgeClass = (category: string) => {
+    switch (category) {
+      case 'Excellent':
+        return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25';
+      case 'Good':
+        return 'bg-blue-500/10 text-blue-400 border border-blue-500/25';
+      case 'Average':
+        return 'bg-amber-500/10 text-amber-400 border border-amber-500/25';
+      case 'At Risk':
+        return 'bg-red-500/10 text-red-400 border border-red-500/25';
+      default:
+        return 'bg-gray-500/10 text-gray-400 border border-gray-500/25';
+    }
+  };
 
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm mb-4">
-          <Info className="w-4 h-4" />
-          Demo prediction engine — machine learning model integration will be added in the next phase.
+  // --- RESULT VIEW (Section 14) ---
+  if (result) {
+    const rawProbs = result.probabilities || {};
+    const normalizedProbs: Record<string, number> = {
+      'Excellent': rawProbs['Excellent'] ?? 0,
+      'Good': rawProbs['Good'] ?? 0,
+      'Average': rawProbs['Average'] ?? 0,
+      'At Risk': rawProbs['At Risk'] ?? rawProbs['At_Risk'] ?? 0,
+    };
+
+    return (
+      <div className="space-y-6 pb-12 max-w-4xl mx-auto">
+        <div className="flex items-center justify-between border-b border-app-border pb-4">
+          <button
+            onClick={() => setResult(null)}
+            className="btn-secondary text-xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Assessment Form</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-muted">Assessment Mode:</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-badge bg-app-surface border border-app-border text-brand-blue">
+              {result.confidenceType === 'Model Probability' ? 'Random Forest (FastAPI)' : 'Simulation Engine'}
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="glass-card p-8 flex flex-col items-center justify-center text-center md:col-span-1">
-            <h2 className="text-xl font-bold text-white mb-6">Performance Score</h2>
-            <div className="relative w-48 h-48 mb-6">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { value: result.score, fill: getCategoryColor(result.category) },
-                      { value: 100 - result.score, fill: '#27272a' }
-                    ]}
-                    cx="50%" cy="50%" innerRadius={70} outerRadius={90}
-                    startAngle={225} endAngle={-45}
-                    dataKey="value" stroke="none"
-                    cornerRadius={10}
-                  >
-                    <Cell fill={getCategoryColor(result.category)} />
-                    <Cell fill="#27272a" />
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-bold text-white">{result.score}</span>
-                <span className="text-sm text-gray-400">/ 100</span>
-              </div>
+        {/* Primary Outcome Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Card 1: Prediction Classification */}
+          <div className="academic-card p-6 bg-app-surface text-left">
+            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider block mb-2">
+              Performance Prediction
+            </span>
+            <div className="text-2xl font-bold text-white mb-2">
+              {result.category}
             </div>
-            
-            <h3 className="text-2xl font-bold" style={{ color: getCategoryColor(result.category) }}>{result.category}</h3>
-            <div className="flex gap-4 mt-4 w-full text-left">
-              <div className="flex-1 bg-surfaceLight/50 p-3 rounded-lg border border-white/5">
-                <p className="text-xs text-gray-400">{result.confidenceType}</p>
-                <p className="font-bold text-white">{result.confidence}%</p>
-              </div>
-              <div className="flex-1 bg-surfaceLight/50 p-3 rounded-lg border border-white/5">
-                <p className="text-xs text-gray-400">Risk Level</p>
-                <p className={cn("font-bold", result.riskLevel.includes('Low') ? 'text-emerald-400' : result.riskLevel.includes('Medium') ? 'text-yellow-400' : 'text-red-400')}>
-                  {result.riskLevel}
-                </p>
-              </div>
-            </div>
-          </motion.div>
+            <span className={cn("badge-academic", getCategoryBadgeClass(result.category))}>
+              {result.category} Performance Tier
+            </span>
+          </div>
 
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="glass-card p-8 md:col-span-2 flex flex-col">
-            <h2 className="text-xl font-bold text-white mb-6">Score Breakdown</h2>
-            <div className="space-y-4">
-              {result.breakdown.map((factor, i) => (
-                <div key={i} className="flex flex-col">
-                  <div className="flex justify-between items-end mb-1">
-                    <span className="font-medium text-gray-300 text-sm">{factor.name} <span className="text-gray-500">({factor.weight}%)</span></span>
-                    <span className="text-xs text-gray-400">{factor.value} / {factor.max}</span>
+          {/* Card 2: Probability Score */}
+          <div className="academic-card p-6 bg-app-surface text-left">
+            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider block mb-2">
+              Model Confidence Score
+            </span>
+            <div className="text-2xl font-bold text-white mb-2">
+              {result.score}<span className="text-sm font-normal text-text-muted"> / 100</span>
+            </div>
+            <span className="text-xs text-text-secondary">
+              Confidence calibrated from class distribution
+            </span>
+          </div>
+
+          {/* Card 3: Risk Stratification */}
+          <div className="academic-card p-6 bg-app-surface text-left">
+            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider block mb-2">
+              Risk Stratification
+            </span>
+            <div className={cn("text-2xl font-bold mb-2", 
+              result.riskLevel === 'Low Risk' && 'text-semantic-success',
+              result.riskLevel === 'Medium Risk' && 'text-semantic-warning',
+              result.riskLevel === 'High Risk' && 'text-semantic-danger',
+            )}>
+              {result.riskLevel}
+            </div>
+            <span className="text-xs text-text-secondary">
+              {result.riskLevel === 'High Risk' ? 'Requires priority faculty intervention' : 'Routine academic progress monitoring'}
+            </span>
+          </div>
+        </div>
+
+        {/* Probability Distribution (Section 14) */}
+        <div className="academic-card p-6 bg-app-surface">
+          <div className="border-b border-app-border pb-3 mb-4">
+            <h2 className="text-sm font-semibold text-white">Class Probability Distribution</h2>
+            <p className="text-xs text-text-muted mt-0.5">Statistical confidence distribution produced by Random Forest classifier</p>
+          </div>
+
+          <div className="space-y-3.5">
+            {Object.entries(normalizedProbs).map(([catName, prob]) => {
+              const pct = Math.round(Number(prob) * 100);
+              const color = getCategoryColor(catName);
+              return (
+                <div key={catName} className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-text-secondary font-medium">{catName}</span>
+                    <span className="font-mono font-semibold text-white">{pct}%</span>
                   </div>
-                  <div className="h-1.5 w-full bg-surfaceLight rounded-full overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-app-secondary border border-app-border overflow-hidden">
                     <div 
-                      className="h-full bg-primary-500 rounded-full"
-                      style={{ width: `${(factor.value / factor.max) * 100}%` }}
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{ width: `${pct}%`, backgroundColor: color }}
                     />
                   </div>
                 </div>
-              ))}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Diagnostic Factor Breakdown */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Positive Factors */}
+          <div className="academic-card p-6 bg-app-surface">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-app-border">
+              <CheckCircle2 className="w-4 h-4 text-semantic-success" />
+              <h3 className="text-sm font-semibold text-white">Positive Indicators</h3>
             </div>
-          </motion.div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="glass-card p-8">
-            <h2 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5" /> Positive Performance Factors
-            </h2>
-            <ul className="space-y-3">
-              {result.positiveFactors.length > 0 ? result.positiveFactors.map((factor, i) => (
-                <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
-                  <span className="text-emerald-400 mt-0.5">✓</span> {factor}
-                </li>
-              )) : (
-                <li className="text-gray-500 text-sm">No major positive factors identified.</li>
+            <ul className="space-y-2 text-xs">
+              {result.positiveFactors && result.positiveFactors.length > 0 ? (
+                result.positiveFactors.map((factor, i) => (
+                  <li key={i} className="flex items-start gap-2 text-text-secondary">
+                    <span className="text-semantic-success mt-0.5 font-bold">✓</span>
+                    <span>{factor}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="text-text-muted">No primary positive factors registered.</li>
               )}
             </ul>
-          </motion.div>
-          
-          <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="glass-card p-8">
-            <h2 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" /> Areas Requiring Attention
-            </h2>
-            <ul className="space-y-3">
-              {result.negativeFactors.length > 0 ? result.negativeFactors.map((factor, i) => (
-                <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
-                  <span className="text-red-400 mt-0.5">⚠</span> {factor}
-                </li>
-              )) : (
-                <li className="text-gray-500 text-sm">No major areas of concern identified.</li>
+          </div>
+
+          {/* Attention Areas */}
+          <div className="academic-card p-6 bg-app-surface">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-app-border">
+              <AlertTriangle className="w-4 h-4 text-semantic-danger" />
+              <h3 className="text-sm font-semibold text-white">Attention Areas</h3>
+            </div>
+            <ul className="space-y-2 text-xs">
+              {result.negativeFactors && result.negativeFactors.length > 0 ? (
+                result.negativeFactors.map((factor, i) => (
+                  <li key={i} className="flex items-start gap-2 text-text-secondary">
+                    <span className="text-semantic-danger mt-0.5 font-bold">!</span>
+                    <span>{factor}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="text-text-muted">No urgent areas of concern detected.</li>
               )}
             </ul>
-          </motion.div>
+          </div>
         </div>
 
-        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="glass-card p-8 bg-gradient-to-br from-surface to-primary-950/20">
-          <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary-400" />
-            Personalized Recommendations
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {result.recommendations.map((rec, i) => (
-              <div key={i} className="flex gap-3 items-start p-4 bg-surfaceLight/30 rounded-xl border border-white/5">
-                <div className="mt-1"><BrainCircuit className="w-5 h-5 text-primary-400" /></div>
-                <p className="text-gray-300 leading-relaxed text-sm">{rec}</p>
+        {/* Academic Remediation Recommendations */}
+        <div className="academic-card p-6 bg-app-surface">
+          <div className="border-b border-app-border pb-3 mb-4">
+            <h3 className="text-sm font-semibold text-white">Faculty & Advisory Recommendations</h3>
+            <p className="text-xs text-text-muted mt-0.5">Actionable academic interventions tailored to this student profile</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {result.recommendations && result.recommendations.map((rec, i) => (
+              <div key={i} className="p-3.5 rounded-card bg-app-secondary border border-app-border text-xs text-text-secondary leading-relaxed">
+                <span className="font-semibold text-white block mb-1">Advisory Note #{i + 1}</span>
+                {rec}
               </div>
             ))}
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+
+        {/* Next Actions */}
+        <div className="flex items-center justify-between pt-2">
+          <button
+            onClick={() => setResult(null)}
+            className="btn-primary"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Assess Another Student</span>
+          </button>
+
+          <Link
+            to="/students"
+            className="btn-secondary"
+          >
+            <Users className="w-3.5 h-3.5 text-text-muted" />
+            <span>View Student Directory</span>
+          </Link>
+        </div>
+      </div>
     );
   }
 
+  // --- FORM VIEW (Section 13) ---
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div className="max-w-4xl mx-auto space-y-6 pb-12">
+      {/* Header and Controls */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-app-border pb-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Predict Performance</h1>
-          <p className="text-gray-400">Enter academic data to generate an AI-based prediction.</p>
+          <h1 className="text-xl font-bold text-white tracking-tight">Student Academic Assessment</h1>
+          <p className="text-xs text-text-muted mt-0.5">
+            Submit verified performance and behavioural indicators to compute predicted performance.
+          </p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={resetForm} className="px-4 py-2 rounded-lg glass hover:bg-white/10 text-gray-300 font-medium transition-all flex items-center gap-2 text-sm">
-            <RefreshCw className="w-4 h-4" /> Reset Form
+
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          {/* Mode Switch */}
+          <div className="flex bg-app-secondary p-0.5 rounded-btn border border-app-border text-xs">
+            <button
+              type="button"
+              onClick={() => setPredictionMode('demo')}
+              className={cn(
+                "px-3 py-1.5 rounded-md font-medium transition-colors",
+                predictionMode === 'demo' ? "bg-app-surface text-white" : "text-text-muted hover:text-white"
+              )}
+            >
+              Demo Engine
+            </button>
+            <button
+              type="button"
+              onClick={() => setPredictionMode('ml')}
+              className={cn(
+                "px-3 py-1.5 rounded-md font-medium transition-colors",
+                predictionMode === 'ml' ? "bg-brand-blue text-white" : "text-text-muted hover:text-white"
+              )}
+            >
+              Random Forest ML
+            </button>
+          </div>
+
+          {/* Quick Actions */}
+          <button
+            type="button"
+            onClick={loadSampleData}
+            className="btn-secondary text-xs h-8 px-2.5"
+            title="Populate with verified sample student data"
+          >
+            <Play className="w-3 h-3 text-brand-blue fill-brand-blue" />
+            <span>Fill Sample</span>
           </button>
-          <button onClick={loadDemo} className="px-5 py-2 rounded-lg bg-primary-500/20 text-primary-400 border border-primary-500/30 hover:bg-primary-500/30 font-semibold transition-all flex items-center gap-2 text-sm shadow-[0_0_15px_rgba(14,165,233,0.15)]">
-            <Play className="w-4 h-4 fill-primary-400" /> Launch Demo
+
+          <button
+            type="button"
+            onClick={resetForm}
+            className="btn-secondary text-xs h-8 px-2.5"
+            title="Reset assessment form"
+          >
+            <RefreshCw className="w-3 h-3 text-text-muted" />
           </button>
         </div>
       </div>
 
+      {/* Error Alert if any */}
+      {error && (
+        <div className="p-4 rounded-card bg-red-500/10 border border-red-500/30 text-xs text-red-200 flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-semantic-danger shrink-0 mt-0.5" />
+          <div className="flex-1 leading-relaxed">
+            <span className="font-semibold block mb-0.5">Assessment Error</span>
+            {error}
+          </div>
+          <button 
+            onClick={() => setError(null)}
+            className="text-text-muted hover:text-white"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Assessment Form */}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Section 1: Student Information */}
+        <div className="academic-card p-6 bg-app-surface space-y-4">
+          <div className="border-b border-app-border pb-3">
+            <h2 className="text-sm font-semibold text-white">1. Student Identification</h2>
+            <p className="text-xs text-text-muted mt-0.5">Academic profile and enrollment parameters.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="student_name" className="block text-xs font-medium text-text-secondary mb-1">
+                Student Full Name *
+              </label>
+              <input
+                id="student_name"
+                name="name"
+                type="text"
+                required
+                placeholder="e.g. Karthick"
+                value={formData.name}
+                onChange={handleInputChange}
+                className="academic-input w-full px-3 py-2 text-xs"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="student_id" className="block text-xs font-medium text-text-secondary mb-1">
+                Student Roll / Registration ID *
+              </label>
+              <input
+                id="student_id"
+                name="id"
+                type="text"
+                required
+                placeholder="e.g. 412724243018"
+                value={formData.id}
+                onChange={handleInputChange}
+                className="academic-input w-full px-3 py-2 text-xs font-mono"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="department" className="block text-xs font-medium text-text-secondary mb-1">
+                Department *
+              </label>
+              <select
+                id="department"
+                name="department"
+                value={formData.department}
+                onChange={handleInputChange}
+                className="academic-input w-full px-3 py-2 text-xs bg-app-secondary"
+              >
+                {DEPARTMENTS.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="year" className="block text-xs font-medium text-text-secondary mb-1">
+                Year of Study *
+              </label>
+              <select
+                id="year"
+                name="year"
+                value={formData.year}
+                onChange={handleInputChange}
+                className="academic-input w-full px-3 py-2 text-xs bg-app-secondary"
+              >
+                {YEARS.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="semester" className="block text-xs font-medium text-text-secondary mb-1">
+                Current Semester *
+              </label>
+              <select
+                id="semester"
+                name="semester"
+                value={formData.semester}
+                onChange={handleInputChange}
+                className="academic-input w-full px-3 py-2 text-xs bg-app-secondary"
+              >
+                {SEMESTERS.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2: Academic Performance Indicators */}
+        <div className="academic-card p-6 bg-app-surface space-y-4">
+          <div className="border-b border-app-border pb-3">
+            <h2 className="text-sm font-semibold text-white">2. Academic Performance Metrics</h2>
+            <p className="text-xs text-text-muted mt-0.5">Formal examination, continuous internal assessment, and historical scores.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label htmlFor="attendance" className="block text-xs font-medium text-text-secondary mb-1">
+                Attendance Percentage *
+              </label>
+              <div className="relative">
+                <input
+                  id="attendance"
+                  name="attendance"
+                  type="number"
+                  required
+                  min={0}
+                  max={100}
+                  value={formData.attendance}
+                  onChange={handleInputChange}
+                  className="academic-input w-full pl-3 pr-8 py-2 text-xs"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">%</span>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="internalMarks" className="block text-xs font-medium text-text-secondary mb-1">
+                Internal Assessment Marks *
+              </label>
+              <div className="relative">
+                <input
+                  id="internalMarks"
+                  name="internalMarks"
+                  type="number"
+                  required
+                  min={0}
+                  max={100}
+                  value={formData.internalMarks}
+                  onChange={handleInputChange}
+                  className="academic-input w-full pl-3 pr-10 py-2 text-xs"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">/ 100</span>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="assignmentAverage" className="block text-xs font-medium text-text-secondary mb-1">
+                Assignment Average *
+              </label>
+              <div className="relative">
+                <input
+                  id="assignmentAverage"
+                  name="assignmentAverage"
+                  type="number"
+                  required
+                  min={0}
+                  max={100}
+                  value={formData.assignmentAverage}
+                  onChange={handleInputChange}
+                  className="academic-input w-full pl-3 pr-10 py-2 text-xs"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">/ 100</span>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="previousMarks" className="block text-xs font-medium text-text-secondary mb-1">
+                Previous Semester Score *
+              </label>
+              <div className="relative">
+                <input
+                  id="previousMarks"
+                  name="previousMarks"
+                  type="number"
+                  required
+                  min={0}
+                  max={100}
+                  value={formData.previousMarks}
+                  onChange={handleInputChange}
+                  className="academic-input w-full pl-3 pr-10 py-2 text-xs"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">/ 100</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Learning Behaviour & Engagement */}
+        <div className="academic-card p-6 bg-app-surface space-y-4">
+          <div className="border-b border-app-border pb-3">
+            <h2 className="text-sm font-semibold text-white">3. Learning Behaviour & Habit Indicators</h2>
+            <p className="text-xs text-text-muted mt-0.5">Self-directed study hours and active classroom engagement metrics.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="studyHours" className="block text-xs font-medium text-text-secondary mb-1">
+                Daily Study Hours *
+              </label>
+              <div className="relative">
+                <input
+                  id="studyHours"
+                  name="studyHours"
+                  type="number"
+                  step="0.5"
+                  required
+                  min={0}
+                  max={16}
+                  value={formData.studyHours}
+                  onChange={handleInputChange}
+                  className="academic-input w-full pl-3 pr-16 py-2 text-xs"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">hrs/day</span>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="assignmentCompletion" className="block text-xs font-medium text-text-secondary mb-1">
+                Assignment Completion Rate *
+              </label>
+              <div className="relative">
+                <input
+                  id="assignmentCompletion"
+                  name="assignmentCompletion"
+                  type="number"
+                  required
+                  min={0}
+                  max={100}
+                  value={formData.assignmentCompletion}
+                  onChange={handleInputChange}
+                  className="academic-input w-full pl-3 pr-8 py-2 text-xs"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">%</span>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="participation" className="block text-xs font-medium text-text-secondary mb-1">
+                Classroom Participation *
+              </label>
+              <div className="relative">
+                <input
+                  id="participation"
+                  name="participation"
+                  type="number"
+                  required
+                  min={0}
+                  max={100}
+                  value={formData.participation}
+                  onChange={handleInputChange}
+                  className="academic-input w-full pl-3 pr-8 py-2 text-xs"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 4: Academic Standing / Risk Factors */}
+        <div className="academic-card p-6 bg-app-surface space-y-4">
+          <div className="border-b border-app-border pb-3">
+            <h2 className="text-sm font-semibold text-white">4. Academic Standing & Arrears</h2>
+            <p className="text-xs text-text-muted mt-0.5">Subject backlogs or pending course requirements.</p>
+          </div>
+
+          <div className="max-w-xs">
+            <label htmlFor="failedSubjects" className="block text-xs font-medium text-text-secondary mb-1">
+              Failed Subjects / Pending Backlogs *
+            </label>
+            <div className="relative">
+              <input
+                id="failedSubjects"
+                name="failedSubjects"
+                type="number"
+                required
+                min={0}
+                max={15}
+                value={formData.failedSubjects}
+                onChange={handleInputChange}
+                className="academic-input w-full pl-3 pr-16 py-2 text-xs"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted">subjects</span>
+            </div>
+            <p className="text-[11px] text-text-muted mt-1">Enter 0 if all previous subjects are cleared.</p>
+          </div>
+        </div>
+
+        {/* Submit Action */}
+        <div className="flex items-center justify-between pt-2">
+          <div className="text-xs text-text-muted">
+            All parameters will be evaluated and logged to the central database.
+          </div>
+          <button
+            type="submit"
+            disabled={isPredicting}
+            className="btn-primary px-6 py-2.5 text-sm"
+          >
+            <span>Generate Performance Assessment</span>
+          </button>
+        </div>
+      </form>
+
+      {/* Professional Processing Modal (Section 15) */}
       <AnimatePresence>
         {isPredicting && (
           <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
           >
-            <div className="glass-card p-10 flex flex-col items-center max-w-sm w-full text-center border border-primary-500/20 shadow-[0_0_50px_rgba(14,165,233,0.2)]">
-              <BrainCircuit className="w-16 h-16 text-primary-400 mb-6 animate-pulse-slow" />
-              <h3 className="text-xl font-bold text-white mb-2">AI Processing</h3>
-              <p className="text-gray-400 h-6">
-                {predictionStep === 1 && "Collecting student information..."}
-                {predictionStep === 2 && "Analyzing academic indicators..."}
-                {predictionStep === 3 && "Evaluating performance factors..."}
-                {predictionStep === 4 && "Generating performance assessment..."}
-              </p>
-              <div className="w-full h-1 bg-surfaceLight mt-6 rounded-full overflow-hidden">
+            <div className="academic-card-elevated p-8 bg-app-surface border border-app-border max-w-sm w-full text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-brand-blue/10 border border-brand-blue/30 mx-auto flex items-center justify-center text-brand-blue">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  {predictionMode === 'ml' ? 'Running Random Forest Model' : 'Evaluating Academic Indicators'}
+                </h3>
+                <p className="text-xs text-text-muted mt-1 h-5">
+                  {predictionStep === 1 && "Validating student academic metrics..."}
+                  {predictionStep === 2 && "Processing multi-factor feature vector..."}
+                  {predictionStep === 3 && "Calculating class probability distributions..."}
+                  {predictionStep >= 4 && "Finalizing prediction and updating records..."}
+                </p>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full h-1.5 bg-app-secondary rounded-full overflow-hidden border border-app-border">
                 <motion.div 
-                  className="h-full bg-primary-500 rounded-full"
+                  className="h-full bg-brand-blue rounded-full"
                   initial={{ width: '0%' }}
-                  animate={{ width: `${(predictionStep / 4) * 100}%` }}
+                  animate={{ width: `${Math.min(100, (predictionStep / 4) * 100)}%` }}
+                  transition={{ ease: "easeInOut" }}
                 />
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        <div className="glass-card p-6 md:p-8">
-          <h2 className="text-xl font-bold text-white mb-6 border-b border-white/10 pb-4">Personal Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Student Name</label>
-              <input required type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-4 py-2 glass-input h-11" placeholder="e.g. John Doe" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Student ID</label>
-              <input required type="text" name="id" value={formData.id} onChange={handleInputChange} className="w-full px-4 py-2 glass-input h-11" placeholder="e.g. ST2023001" />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-gray-300">Department</label>
-              <select name="department" value={formData.department} onChange={handleInputChange} className="w-full px-4 py-2 glass-input h-11 bg-surfaceLight">
-                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Year</label>
-              <select name="year" value={formData.year} onChange={handleInputChange} className="w-full px-4 py-2 glass-input h-11 bg-surfaceLight">
-                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Semester</label>
-              <select name="semester" value={formData.semester} onChange={handleInputChange} className="w-full px-4 py-2 glass-input h-11 bg-surfaceLight">
-                {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 md:p-8">
-          <h2 className="text-xl font-bold text-white mb-6 border-b border-white/10 pb-4">Academic & Behavioral Indicators</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
-            {/* Range Inputs */}
-            {[
-              { name: 'attendance', label: 'Attendance', min: 0, max: 100, unit: '%', desc: 'Current semester attendance' },
-              { name: 'internalMarks', label: 'Internal Assessment Marks', min: 0, max: 100, unit: '', desc: 'Average of internals' },
-              { name: 'assignmentAverage', label: 'Assignment Average', min: 0, max: 100, unit: '', desc: 'Average assignment scores' },
-              { name: 'previousMarks', label: 'Previous Semester Marks', min: 0, max: 100, unit: '', desc: 'Overall percentage' },
-              { name: 'studyHours', label: 'Study Hours Per Day', min: 0, max: 12, unit: 'hrs', desc: 'Self-study hours outside class', step: 0.5 },
-              { name: 'assignmentCompletion', label: 'Assignment Completion', min: 0, max: 100, unit: '%', desc: 'Percentage submitted on time' },
-              { name: 'participation', label: 'Class Participation', min: 0, max: 100, unit: '%', desc: 'Active involvement in discussions' },
-              { name: 'failedSubjects', label: 'Previous Failed Subjects', min: 0, max: 10, unit: '', desc: 'Number of arrears' }
-            ].map((field) => (
-              <div key={field.name} className="space-y-4">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <label className="text-sm font-medium text-gray-200">{field.label}</label>
-                    <p className="text-xs text-gray-500">{field.desc}</p>
-                  </div>
-                  <span className="font-bold text-primary-400 text-lg w-16 text-right">
-                    {(formData as any)[field.name]}{field.unit}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  name={field.name}
-                  min={field.min}
-                  max={field.max}
-                  step={field.step || 1}
-                  value={(formData as any)[field.name]}
-                  onChange={handleInputChange}
-                  className="w-full h-2 bg-surfaceLight rounded-lg appearance-none cursor-pointer accent-primary-500"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-4">
-          <button 
-            type="submit" 
-            className="flex items-center gap-2 px-10 py-4 rounded-xl bg-primary-600 hover:bg-primary-500 text-white font-bold text-lg transition-all shadow-[0_0_20px_rgba(14,165,233,0.3)] hover:shadow-[0_0_30px_rgba(14,165,233,0.5)] hover:-translate-y-1"
-          >
-            <BrainCircuit className="w-6 h-6" />
-            Predict Performance
-          </button>
-        </div>
-      </form>
     </div>
   );
 }
